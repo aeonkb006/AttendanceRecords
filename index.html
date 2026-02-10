@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>OT/假期 記錄系統 (2026)</title>
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --warning-color: #ffc107;
+            --bg-color: #f0f2f5;
+            --card-bg: #ffffff;
+            --text-main: #333;
+        }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            background-color: var(--bg-color); 
+            margin: 0; 
+            padding: 10px; 
+            color: var(--text-main);
+            padding-bottom: 80px; 
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        button:active, .calendar-day:active, select:active { transform: scale(0.98); }
+
+        /* 頂部儀表板 */
+        .dashboard { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 15px; }
+        .stat-card { background: var(--card-bg); padding: 12px 5px; border-radius: 12px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .stat-value { font-size: 1.3rem; font-weight: 800; display: block; margin-bottom: 2px; }
+        .stat-label { font-size: 0.75rem; color: #666; font-weight: 500; }
+        .text-green { color: var(--success-color); }
+        .text-red { color: var(--danger-color); }
+
+        /* 月曆樣式 */
+        .calendar-container { background: var(--card-bg); padding: 15px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .calendar-header h3 { margin: 0; font-size: 1.2rem; }
+        .cal-btn { background: #eee; border: none; border-radius: 8px; padding: 5px 15px; font-weight: bold; font-size: 1.2rem; }
+        
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; text-align: center; }
+        .calendar-day-name { font-weight: bold; font-size: 0.8rem; color: #888; padding-bottom: 5px; }
+        .calendar-day { 
+            padding: 4px 2px; border-radius: 10px; cursor: pointer; min-height: 45px; 
+            border: 1px solid transparent; position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center;
+            background: #fdfdfd;
+        }
+        .calendar-day.selected { background-color: var(--primary-color) !important; color: white !important; border-color: var(--primary-color); box-shadow: 0 4px 8px rgba(0,123,255,0.3); }
+        .calendar-day.today { border: 2px solid var(--primary-color); font-weight: bold; }
+        .calendar-day.sunday { color: var(--danger-color); }
+        .calendar-day.holiday { color: var(--danger-color); }
+        
+        .holiday-name { font-size: 0.6rem; line-height: 1.1; margin-top: 2px; color: #d63384; transform: scale(0.9); font-weight: normal; }
+        .calendar-day.selected .holiday-name { color: rgba(255,255,255,0.9); }
+        
+        .dot { width: 5px; height: 5px; background-color: var(--primary-color); border-radius: 50%; position: absolute; bottom: 4px; }
+        .calendar-day.selected .dot { background-color: white; }
+
+        /* 輸入區樣式 */
+        .input-section { background: var(--card-bg); padding: 20px; border-radius: 15px; box-shadow: 0 -4px 20px rgba(0,0,0,0.1); position: fixed; bottom: 0; left: 0; width: 100%; box-sizing: border-box; z-index: 900; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1); border-top: 1px solid #eee; }
+        .input-section.active { transform: translateY(0); }
+        
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.9rem; color: #444; }
+        
+        select, input { width: 100%; padding: 14px; border: 1px solid #ddd; border-radius: 10px; font-size: 1rem; box-sizing: border-box; background: #fff; appearance: none; -webkit-appearance: none; }
+        select { background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 1rem center; background-size: 1em; }
+
+        button.btn-primary { width: 100%; padding: 15px; background-color: var(--primary-color); color: white; border: none; border-radius: 10px; font-size: 1.1rem; font-weight: bold; margin-top: 10px; box-shadow: 0 4px 6px rgba(0,123,255,0.2); }
+        .btn-close { position: absolute; top: 15px; right: 15px; background: #f0f0f0; border: none; border-radius: 50%; width: 30px; height: 30px; font-weight: bold; color: #666; font-size: 1.2rem; line-height: 30px; text-align: center; }
+
+        .record-list { background: var(--card-bg); border-radius: 15px; margin-top: 20px; overflow: hidden; margin-bottom: 80px; }
+        .record-item { padding: 15px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; }
+        .record-info { font-size: 0.95rem; }
+        .record-delete { color: #999; background: none; border: none; padding: 10px; font-size: 1.2rem; }
+
+        /* 彈窗 Modal */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 2000; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
+        .modal.show { display: flex; animation: fadeIn 0.2s; }
+        .modal-content { background: white; padding: 25px; border-radius: 15px; width: 85%; max-width: 350px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .modal-content h3 { margin-top: 0; color: var(--danger-color); }
+        
+        .settings-btn { position: fixed; top: 10px; right: 10px; width: 40px; height: 40px; border-radius: 50%; background: white; color: #333; font-size: 20px; display: flex; justify-content: center; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); z-index: 100; cursor: pointer; border: 1px solid #eee; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div class="settings-btn" onclick="tap(); openSettings()">⚙️</div>
+
+    <div class="dashboard">
+        <div class="stat-card">
+            <span class="stat-value" id="balanceAL">--</span>
+            <span class="stat-label">年假 (日)</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-value" id="balancePH">--</span>
+            <span class="stat-label">補假 (日)</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-value" id="balanceOT">--</span>
+            <span class="stat-label">OT/欠鐘</span>
+        </div>
+    </div>
+
+    <div class="calendar-container">
+        <div class="calendar-header">
+            <button class="cal-btn" onclick="tap(); changeMonth(-1)">&lt;</button>
+            <h3 id="currentMonthLabel">2026年 2月</h3>
+            <button class="cal-btn" onclick="tap(); changeMonth(1)">&gt;</button>
+        </div>
+        <div class="calendar-grid">
+            <div class="calendar-day-name sunday">日</div>
+            <div class="calendar-day-name">一</div>
+            <div class="calendar-day-name">二</div>
+            <div class="calendar-day-name">三</div>
+            <div class="calendar-day-name">四</div>
+            <div class="calendar-day-name">五</div>
+            <div class="calendar-day-name">六</div>
+            <div id="calendarDays" class="calendar-grid" style="display: contents;"></div>
+        </div>
+    </div>
+
+    <h4 style="margin: 0 10px; color: #666;">最近記錄</h4>
+    <div class="record-list" id="recordList"></div>
+
+    <div id="inputSection" class="input-section">
+        <button class="btn-close" onclick="tap(); closeInput()">×</button>
+        <h3 style="margin-top: 0; font-size: 1.1rem;">📅 <span id="selectedDateLabel"></span></h3>
+        
+        <div class="form-group">
+            <label>類別選擇</label>
+            <select id="typeSelect" onchange="tap(); updateFormUI()">
+                <option value="OT">⚡ OT (加班)</option>
+                <option value="Comp">📉 補鐘</option>
+                <option value="PH">🏖️ 補假 (PH)</option>
+                <option value="AL">🌴 年假 (AL)</option>
+            </select>
+        </div>
+
+        <div id="formOT" class="form-group">
+            <label>加班時數</label>
+            <select id="hoursOT" onchange="tap()"></select>
+        </div>
+
+        <div id="formComp" class="form-group" style="display:none;">
+            <label>補鐘時數</label>
+            <select id="hoursComp" onchange="tap()"></select>
+        </div>
+
+        <div id="formPH" class="form-group" style="display:none;">
+            <label>來源假期 (公眾假期)</label>
+            <select id="sourcePH" onchange="tap(); checkPHValidity()"></select>
+            <div id="phWarning" style="color:red; font-size:0.8rem; margin-top:5px; display:none;"></div>
+        </div>
+
+        <div id="formAL" class="form-group" style="display:none;">
+            <div style="background:#e3f2fd; padding:15px; border-radius:10px; color:#0d47a1; text-align:center;">
+                確認記錄年假？將扣除 1 日額度。
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>備註</label>
+            <input type="text" id="remarks" placeholder="如有: 可選擇填寫">
+        </div>
+
+        <button onclick="tap(); saveRecord()" class="btn-primary">確認記錄</button>
+    </div>
+
+    <div id="disclaimerModal" class="modal">
+        <div class="modal-content">
+            <h3>⚠️ 免責聲明</h3>
+            <p style="font-size: 0.9rem; color: #555; text-align: left; line-height: 1.5;">
+                此表格僅作實驗用途。<br><br>
+                請各位<b>私下再作另外記錄</b>。<br><br>
+                如因此表格因任何情況崩潰或遺失資料，開發者一概並不負責。
+            </p>
+            <button class="btn-primary" onclick="tap(); closeDisclaimer()">我明白並同意</button>
+        </div>
+    </div>
+
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <h3 style="color:#333">⚙️ 設定</h3>
+            <p>每年年假 (AL) 額度：</p>
+            <select id="alQuotaSelect" onchange="tap()" style="margin-bottom: 20px;">
+                <option value="12">12 日</option>
+                <option value="14">14 日</option>
+                <option value="17">17 日</option>
+            </select>
+            <button class="btn-primary" onclick="tap(); saveSettings()">儲存設定</button>
+            <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
+                <button onclick="tap(); resetAll()" style="background:white; color:red; border:1px solid red; padding:10px; width:100%; border-radius:8px;">⚠️ 重置所有資料</button>
+            </div>
+            <button onclick="tap(); document.getElementById('settingsModal').classList.remove('show')" style="margin-top:10px; background:none; border:none; color:#666;">關閉</button>
+        </div>
+    </div>
+
+<script>
+    // --- 0. 音效與震動 ---
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    function tap() {
+        if (navigator.vibrate) navigator.vibrate(15);
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.05);
+        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + 0.05);
+    }
+
+    // --- 1. 資料庫配置 ---
+    const DB_KEY = 'ot_system_data_v2';
+    const SETTINGS_KEY = 'ot_system_settings_v2';
+    
+    const holidays2026 = {
+        '1/1': '元旦', '2/17': '年初一', '2/18': '年初二', '2/19': '年初三',
+        '4/3': '耶穌受難', '4/4': '受難翌日', '4/6': '清明翌日', '4/7': '復活翌日',
+        '5/1': '勞動節', '5/25': '佛誕翌日', '6/19': '端午節', '7/1': '回歸',
+        '9/26': '中秋翌日', '10/1': '國慶', '10/19': '重陽', '12/25': '聖誕', '12/26': '聖誕翌日'
+    };
+
+    const holidayDates = {
+        '元旦': '2026-01-01', '年初一': '2026-02-17', '年初二': '2026-02-18', '年初三': '2026-02-19',
+        '耶穌受難': '2026-04-03', '受難翌日': '2026-04-04', '清明翌日': '2026-04-06', '復活翌日': '2026-04-07',
+        '勞動節': '2026-05-01', '佛誕翌日': '2026-05-25', '端午節': '2026-06-19', '回歸': '2026-07-01',
+        '中秋翌日': '2026-09-26', '國慶': '2026-10-01', '重陽': '2026-10-19', '聖誕': '2026-12-25', '聖誕翌日': '2026-12-26'
+    };
+
+    let currentDate = new Date(2026, 1, 1);
+    let selectedDateStr = '';
+    let appData = [];
+    let userSettings = { alQuota: 14 };
+
+    // --- 2. 初始化 ---
+    window.onload = function() {
+        document.getElementById('disclaimerModal').classList.add('show');
+        loadData();
+        renderCalendar();
+        initTimeOptions();
+        document.body.addEventListener('touchstart', function() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }, {once:true});
+    };
+
+    function closeDisclaimer() {
+        document.getElementById('disclaimerModal').classList.remove('show');
+        if (!localStorage.getItem(SETTINGS_KEY)) openSettings();
+    }
+
+    function loadData() {
+        const savedData = localStorage.getItem(DB_KEY);
+        if (savedData) appData = JSON.parse(savedData);
+        const savedSettings = localStorage.getItem(SETTINGS_KEY);
+        if (savedSettings) userSettings = JSON.parse(savedSettings);
+        calculateBalance();
+        renderRecords();
+    }
+
+    function initTimeOptions() {
+        const otSelect = document.getElementById('hoursOT');
+        otSelect.innerHTML = '';
+        for (let i = 0.5; i <= 8.0; i += 0.5) otSelect.innerHTML += `<option value="${i}">${i} 小時</option>`;
+        const compSelect = document.getElementById('hoursComp');
+        compSelect.innerHTML = '';
+        for (let i = 0.5; i <= 5.0; i += 0.5) compSelect.innerHTML += `<option value="${i}">${i} 小時</option>`;
+    }
+
+    // --- 3. 介面邏輯 ---
+    function renderCalendar() {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        document.getElementById('currentMonthLabel').innerText = `${year}年 ${month + 1}月`;
+        
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        const startDayIndex = firstDay.getDay();
+
+        const container = document.getElementById('calendarDays');
+        container.innerHTML = '';
+
+        for (let i = 0; i < startDayIndex; i++) container.innerHTML += `<div></div>`;
+
+        for (let day = 1; day <= lastDay.getDate(); day++) {
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const shortKey = `${month + 1}/${day}`;
+            const holidayName = holidays2026[shortKey] || '';
+            const isSunday = new Date(year, month, day).getDay() === 0;
+            const isSelected = dateStr === selectedDateStr;
+            const hasRecord = appData.some(r => r.date === dateStr);
+
+            let classes = `calendar-day ${isSunday ? 'sunday' : ''} ${holidayName ? 'holiday' : ''} ${isSelected ? 'selected' : ''}`;
+
+            container.innerHTML += `
+                <div class="${classes}" onclick="tap(); selectDate('${dateStr}')">
+                    <span>${day}</span>
+                    ${holidayName ? `<span class="holiday-name">${holidayName}</span>` : ''}
+                    ${hasRecord ? '<div class="dot"></div>' : ''}
+                </div>
+            `;
+        }
+    }
+
+    function changeMonth(delta) {
+        currentDate.setMonth(currentDate.getMonth() + delta);
+        renderCalendar();
+    }
+
+    function selectDate(dateStr) {
+        selectedDateStr = dateStr;
+        renderCalendar();
+        const inputSec = document.getElementById('inputSection');
+        inputSec.classList.add('active');
+        
+        let label = dateStr;
+        const d = new Date(dateStr);
+        const shortKey = `${d.getMonth()+1}/${d.getDate()}`;
+        if (holidays2026[shortKey]) label += ` (${holidays2026[shortKey]})`;
+        
+        document.getElementById('selectedDateLabel').innerText = label;
+        updateFormUI(); 
+    }
+
+    function closeInput() {
+        document.getElementById('inputSection').classList.remove('active');
+        selectedDateStr = '';
+        renderCalendar();
+    }
+
+    function updateFormUI() {
+        const type = document.getElementById('typeSelect').value;
+        document.getElementById('formOT').style.display = type === 'OT' ? 'block' : 'none';
+        document.getElementById('formComp').style.display = type === 'Comp' ? 'block' : 'none';
+        document.getElementById('formPH').style.display = type === 'PH' ? 'block' : 'none';
+        document.getElementById('formAL').style.display = type === 'AL' ? 'block' : 'none';
+
+        if (type === 'PH') updatePHOptions();
+    }
+
+    function updatePHOptions() {
+        const phSelect = document.getElementById('sourcePH');
+        phSelect.innerHTML = ''; 
+
+        const usedHolidays = new Set(appData.filter(r => r.type === 'PH').map(r => r.sourcePH));
+        const selectedDate = new Date(selectedDateStr);
+
+        for (const [name, dateStr] of Object.entries(holidayDates)) {
+            const hDate = new Date(dateStr);
+            const isUsed = usedHolidays.has(name);
+            const isFuture = hDate > selectedDate; // 檢查假期是否遲過所選日期
+
+            let labelText = `${name} (${dateStr})`;
+            let disabledAttr = '';
+            let style = '';
+
+            if (isUsed) {
+                labelText = `${name} (已放)`;
+                disabledAttr = 'disabled';
+                style = 'color:#aaa';
+            } else if (isFuture) {
+                labelText = `${name} (未發生)`;
+                disabledAttr = 'disabled'; // 禁止選擇未發生的假期
+                style = 'color:#ddd';
+            }
+            
+            phSelect.innerHTML += `<option value="${name}" ${disabledAttr} style="${style}">${labelText}</option>`;
+        }
+        checkPHValidity();
+    }
+
+    function checkPHValidity() {
+        if (!selectedDateStr) return;
+        const holidayName = document.getElementById('sourcePH').value;
+        const warning = document.getElementById('phWarning');
+        
+        if (!holidayName) { warning.style.display = 'none'; return; }
+
+        const hDate = new Date(holidayDates[holidayName]);
+        const aDate = new Date(selectedDateStr);
+        
+        // 額外檢查：如果用戶用某種方法選了未來日期
+        if (aDate < hDate) {
+            warning.style.display = 'block';
+            warning.innerText = `❌ 錯誤：補假日子不能早於該公眾假期！`;
+            return;
+        }
+
+        const diffDays = Math.ceil(Math.abs(aDate - hDate) / (1000 * 60 * 60 * 24));
+
+        if (diffDays > 60) {
+            warning.style.display = 'block';
+            warning.innerText = `⚠️ 提示：與假期相差 ${diffDays} 日，已超過 60 日限期！`;
+        } else {
+            warning.style.display = 'none';
+        }
+    }
+
+    // --- 4. 儲存與邏輯 ---
+    function saveRecord() {
+        if (!selectedDateStr) return;
+        const type = document.getElementById('typeSelect').value;
+        let hours = 0, days = 0, sourcePH = '', remarks = document.getElementById('remarks').value;
+
+        if (type === 'OT') hours = parseFloat(document.getElementById('hoursOT').value);
+        else if (type === 'Comp') hours = -parseFloat(document.getElementById('hoursComp').value);
+        else if (type === 'PH') {
+            sourcePH = document.getElementById('sourcePH').value;
+            if (!sourcePH) { alert("無效的假期選擇 (已用盡或未發生)"); return; }
+            
+            // 安全檢查：防止早於假期
+            const hDate = new Date(holidayDates[sourcePH]);
+            const aDate = new Date(selectedDateStr);
+            if (aDate < hDate) {
+                alert("❌ 錯誤：補假日子不能早於該公眾假期！");
+                return;
+            }
+
+            days = -1;
+            remarks = `[補] ${sourcePH} ` + remarks;
+        } 
+        else if (type === 'AL') {
+            days = -1;
+            remarks = `[年假] ` + remarks;
+        }
+
+        appData.unshift({
+            id: Date.now(),
+            date: selectedDateStr,
+            type: type,
+            hours: hours,
+            days: days,
+            sourcePH: sourcePH, 
+            remarks: remarks
+        });
+
+        localStorage.setItem(DB_KEY, JSON.stringify(appData));
+        closeInput();
+        loadData();
+    }
+
+    function deleteRecord(id) {
+        if (!confirm("確定刪除此記錄？")) return;
+        appData = appData.filter(r => r.id !== id);
+        localStorage.setItem(DB_KEY, JSON.stringify(appData));
+        loadData();
+        renderCalendar();
+    }
+
+    function calculateBalance() {
+        let balOT = 0, phUsed = 0, alUsed = 0;
+        appData.forEach(r => {
+            if (r.type === 'OT' || r.type === 'Comp') balOT += r.hours;
+            if (r.type === 'PH') phUsed += 1;
+            if (r.type === 'AL') alUsed += 1;
+        });
+
+        const elOT = document.getElementById('balanceOT');
+        if (balOT > 0) {
+            elOT.innerHTML = `OT: +${balOT}<small> hrs</small>`;
+            elOT.className = 'stat-value text-green';
+        } else if (balOT < 0) {
+            elOT.innerHTML = `欠: ${balOT}<small> hrs</small>`;
+            elOT.className = 'stat-value text-red';
+        } else {
+            elOT.innerHTML = `0`;
+            elOT.className = 'stat-value';
+        }
+
+        document.getElementById('balancePH').innerHTML = `${17 - phUsed} <small>/ 17</small>`;
+        document.getElementById('balanceAL').innerHTML = `${userSettings.alQuota - alUsed} <small>/ ${userSettings.alQuota}</small>`;
+    }
+
+    function renderRecords() {
+        const list = document.getElementById('recordList');
+        list.innerHTML = '';
+        const sorted = [...appData].sort((a,b) => new Date(b.date) - new Date(a.date));
+
+        sorted.forEach(r => {
+            let val = (r.type === 'OT' || r.type === 'Comp') ? `${r.hours} hrs` : '1 日';
+            let color = r.hours > 0 ? 'green' : (r.hours < 0 ? 'orange' : '#333');
+            if (r.type === 'PH') color = '#d63384';
+            if (r.type === 'AL') color = 'blue';
+
+            list.innerHTML += `
+                <div class="record-item">
+                    <div class="record-info">
+                        <strong>${r.date}</strong> <span style="color:${color};font-weight:bold;margin-left:5px;">${r.type}</span> <span style="font-size:0.8rem;color:#888;">${val}</span><br>
+                        <span style="color:#666; font-size:0.85rem;">${r.remarks || ''}</span>
+                    </div>
+                    <button class="record-delete" onclick="tap(); deleteRecord(${r.id})">×</button>
+                </div>
+            `;
+        });
+    }
+
+    // --- 5. 設定 ---
+    function openSettings() {
+        document.getElementById('settingsModal').classList.add('show');
+        document.getElementById('alQuotaSelect').value = userSettings.alQuota;
+    }
+    function saveSettings() {
+        userSettings.alQuota = parseInt(document.getElementById('alQuotaSelect').value);
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(userSettings));
+        document.getElementById('settingsModal').classList.remove('show');
+        loadData();
+    }
+    function resetAll() {
+        if (confirm("⚠️ 警告：這將刪除所有記錄！無法復原！")) {
+            localStorage.removeItem(DB_KEY);
+            location.reload();
+        }
+    }
+</script>
+</body>
+</html>
