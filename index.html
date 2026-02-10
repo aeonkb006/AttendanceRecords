@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>OT/假期 記錄系統 (V9)</title>
+    <title>OT/假期 記錄系統 (V10)</title>
     
     <link rel="apple-touch-icon" href="icon.png"> 
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -15,7 +15,7 @@
             --success-color: #28a745;
             --danger-color: #dc3545;
             --warning-color: #ffc107;
-            --bg-color: #f0f2f5;
+            --bg-color: #f2f3f5;
             --card-bg: #ffffff;
             --text-main: #333;
         }
@@ -40,18 +40,23 @@
         .text-red { color: var(--danger-color); }
         .text-blue { color: var(--primary-color); }
 
-        /* 月曆樣式 */
+        /* 月曆樣式 - 修復版 */
         .calendar-container { background: var(--card-bg); padding: 15px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }
         .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .calendar-header h3 { margin: 0; font-size: 1.2rem; }
         .cal-btn { background: #eee; border: none; border-radius: 8px; padding: 5px 15px; font-weight: bold; font-size: 1.2rem; }
         
+        /* 星期標題 */
+        .week-header { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; text-align: center; margin-bottom: 5px; }
+        .calendar-day-name { font-weight: bold; font-size: 0.8rem; color: #888; }
+        
+        /* 日子網格 */
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; text-align: center; }
-        .calendar-day-name { font-weight: bold; font-size: 0.8rem; color: #888; padding-bottom: 5px; }
+        
         .calendar-day { 
             padding: 4px 2px; border-radius: 10px; cursor: pointer; min-height: 45px; 
             border: 1px solid transparent; position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center;
-            background: #fdfdfd;
+            background: #fdfdfd; box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
         .calendar-day.selected { background-color: var(--primary-color) !important; color: white !important; border-color: var(--primary-color); box-shadow: 0 4px 8px rgba(0,123,255,0.3); }
         .calendar-day.today { border: 2px solid var(--primary-color); font-weight: bold; }
@@ -71,12 +76,13 @@
         .form-group { margin-bottom: 15px; }
         label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.9rem; color: #444; }
         
-        select, input { width: 100%; padding: 14px; border: 1px solid #ddd; border-radius: 10px; font-size: 1rem; box-sizing: border-box; background: #fff; appearance: none; -webkit-appearance: none; }
+        /* 下拉選單修復 */
+        select, input { width: 100%; padding: 14px; border: 1px solid #ddd; border-radius: 10px; font-size: 1rem; box-sizing: border-box; background-color: #fff; appearance: none; -webkit-appearance: none; }
         select { background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 1rem center; background-size: 1em; }
         select:invalid, select option[value=""] { color: #999; }
 
         button.btn-primary { width: 100%; padding: 15px; background-color: var(--primary-color); color: white; border: none; border-radius: 10px; font-size: 1.1rem; font-weight: bold; margin-top: 10px; box-shadow: 0 4px 6px rgba(0,123,255,0.2); }
-        button:disabled { background-color: #ccc; cursor: not-allowed; box-shadow: none; } /* 禁用狀態 */
+        button:disabled { background-color: #ccc; cursor: not-allowed; box-shadow: none; }
         
         .btn-close { position: absolute; top: 15px; right: 15px; background: #f0f0f0; border: none; border-radius: 50%; width: 30px; height: 30px; font-weight: bold; color: #666; font-size: 1.2rem; line-height: 30px; text-align: center; }
 
@@ -88,7 +94,6 @@
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 2000; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
         .modal.show { display: flex; animation: fadeIn 0.2s; }
         .modal-content { background: white; padding: 25px; border-radius: 15px; width: 85%; max-width: 350px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
-        .modal-content h3 { margin-top: 0; color: var(--danger-color); }
         
         .settings-btn { position: fixed; top: 10px; right: 10px; width: 40px; height: 40px; border-radius: 50%; background: white; color: #333; font-size: 20px; display: flex; justify-content: center; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); z-index: 100; cursor: pointer; border: 1px solid #eee; }
 
@@ -120,7 +125,7 @@
             <h3 id="currentMonthLabel">2026年 2月</h3>
             <button class="cal-btn" onclick="tap(); changeMonth(1)">&gt;</button>
         </div>
-        <div class="calendar-grid">
+        <div class="week-header">
             <div class="calendar-day-name sunday">日</div>
             <div class="calendar-day-name">一</div>
             <div class="calendar-day-name">二</div>
@@ -128,8 +133,8 @@
             <div class="calendar-day-name">四</div>
             <div class="calendar-day-name">五</div>
             <div class="calendar-day-name">六</div>
-            <div id="calendarDays" class="calendar-grid" style="display: contents;"></div>
         </div>
+        <div id="calendarDays" class="calendar-grid"></div>
     </div>
 
     <h4 style="margin: 0 10px; color: #666;">最近記錄</h4>
@@ -265,15 +270,17 @@
     let appData = [];
     let userSettings = { alQuota: 14, alCarry: 0 }; 
 
-    window.onload = function() {
+    // --- 優先執行初始化 ---
+    document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('disclaimerModal').classList.add('show');
-        loadData();
-        renderCalendar();
-        initTimeOptions();
+        initTimeOptions(); // 先填充選項
+        loadData();        // 再載入數據
+        renderCalendar();  // 最後畫月曆
+        
         document.body.addEventListener('touchstart', function() {
             if (audioCtx.state === 'suspended') audioCtx.resume();
         }, {once:true});
-    };
+    });
 
     function closeDisclaimer() {
         document.getElementById('disclaimerModal').classList.remove('show');
@@ -292,14 +299,21 @@
         renderRecords();
     }
 
+    // --- 修復：確保選項生成 ---
     function initTimeOptions() {
-        const otSelect = document.getElementById('hoursOT');
-        otSelect.innerHTML = '<option value="" disabled selected>-- 請選擇時數 --</option>';
-        for (let i = 0.5; i <= 8.0; i += 0.5) otSelect.innerHTML += `<option value="${i}">${i} 小時</option>`;
+        // OT 選項
+        let otHtml = '<option value="" disabled selected>-- 請選擇時數 --</option>';
+        for (let i = 0.5; i <= 8.0; i += 0.5) {
+            otHtml += `<option value="${i}">${i} 小時</option>`;
+        }
+        document.getElementById('hoursOT').innerHTML = otHtml;
         
-        const compSelect = document.getElementById('hoursComp');
-        compSelect.innerHTML = '<option value="" disabled selected>-- 請選擇時數 --</option>';
-        for (let i = 0.5; i <= 5.0; i += 0.5) compSelect.innerHTML += `<option value="${i}">${i} 小時</option>`;
+        // 補鐘選項
+        let compHtml = '<option value="" disabled selected>-- 請選擇時數 --</option>';
+        for (let i = 0.5; i <= 5.0; i += 0.5) {
+            compHtml += `<option value="${i}">${i} 小時</option>`;
+        }
+        document.getElementById('hoursComp').innerHTML = compHtml;
     }
 
     function renderCalendar() {
@@ -376,7 +390,6 @@
         document.getElementById('phWarning').style.display = 'none';
     }
 
-    // --- 修改：PH 下拉選單邏輯 (不能當天或早於假期) ---
     function updatePHOptions() {
         const phSelect = document.getElementById('sourcePH');
         phSelect.innerHTML = '<option value="" disabled selected>-- 請選擇來源 --</option>';
@@ -427,7 +440,6 @@
         const saveBtn = document.getElementById('saveBtn');
         const warning = document.getElementById('phWarning');
         
-        // 嚴格檢查：必須 aDate > hDate (不能相等，不能小於)
         if (aDate <= hDate) {
             warning.style.display = 'block';
             warning.innerText = `❌ 錯誤：補假日子必須在公眾假期之後！`;
@@ -499,25 +511,18 @@
             days = -1;
             remarks = `[年假] ` + remarks;
             
-            // 年假預支檢查
             let currentUsed = appData.filter(r => r.type === 'AL').length;
             let totalQuota = userSettings.alQuota + userSettings.alCarry;
             let balance = totalQuota - currentUsed;
             
-            // 1. 硬性上限檢查 (不能預支超過3日)
-            // balance 0 -> 可以用 (變成 -1)
-            // balance -1 -> 可以用 (變成 -2)
-            // balance -2 -> 可以用 (變成 -3)
-            // balance -3 -> 唔可以用 (會變成 -4)
             if (balance <= -3) {
                 alert("❌ 錯誤：已達到預支上限 (3日)！無法再申請年假。");
                 return;
             }
 
-            // 2. 彈窗確認 (如果餘額是 0 或負數，即係要預支)
             if (balance <= 0) {
                 const confirmAdvance = confirm(`⚠️ 注意：\n你現有的年假額度已用盡。\n\n確認要「預支」下年度年假嗎？\n(目前預支第 ${Math.abs(balance) + 1} / 3 日)`);
-                if (!confirmAdvance) return; // 按取消就停止
+                if (!confirmAdvance) return; 
             }
         }
 
@@ -567,7 +572,6 @@
 
         document.getElementById('balancePH').innerHTML = `${17 - phUsed} <small>/ 17</small>`;
         
-        // 年假顯示邏輯
         let totalAL = userSettings.alQuota + userSettings.alCarry;
         let balanceAL = totalAL - alUsed;
         
