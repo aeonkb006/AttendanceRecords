@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>OT/假期 記錄系統 (2026)</title>
+    <title>OT/假期 記錄系統 (V9)</title>
     
     <link rel="apple-touch-icon" href="icon.png"> 
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -38,6 +38,7 @@
         .stat-label { font-size: 0.75rem; color: #666; font-weight: 500; }
         .text-green { color: var(--success-color); }
         .text-red { color: var(--danger-color); }
+        .text-blue { color: var(--primary-color); }
 
         /* 月曆樣式 */
         .calendar-container { background: var(--card-bg); padding: 15px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }
@@ -72,8 +73,11 @@
         
         select, input { width: 100%; padding: 14px; border: 1px solid #ddd; border-radius: 10px; font-size: 1rem; box-sizing: border-box; background: #fff; appearance: none; -webkit-appearance: none; }
         select { background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 1rem center; background-size: 1em; }
+        select:invalid, select option[value=""] { color: #999; }
 
         button.btn-primary { width: 100%; padding: 15px; background-color: var(--primary-color); color: white; border: none; border-radius: 10px; font-size: 1.1rem; font-weight: bold; margin-top: 10px; box-shadow: 0 4px 6px rgba(0,123,255,0.2); }
+        button:disabled { background-color: #ccc; cursor: not-allowed; box-shadow: none; } /* 禁用狀態 */
+        
         .btn-close { position: absolute; top: 15px; right: 15px; background: #f0f0f0; border: none; border-radius: 50%; width: 30px; height: 30px; font-weight: bold; color: #666; font-size: 1.2rem; line-height: 30px; text-align: center; }
 
         .record-list { background: var(--card-bg); border-radius: 15px; margin-top: 20px; overflow: hidden; margin-bottom: 80px; }
@@ -81,7 +85,6 @@
         .record-info { font-size: 0.95rem; }
         .record-delete { color: #999; background: none; border: none; padding: 10px; font-size: 1.2rem; }
 
-        /* 彈窗 Modal */
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 2000; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
         .modal.show { display: flex; animation: fadeIn 0.2s; }
         .modal-content { background: white; padding: 25px; border-radius: 15px; width: 85%; max-width: 350px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
@@ -139,6 +142,7 @@
         <div class="form-group">
             <label>類別選擇</label>
             <select id="typeSelect" onchange="tap(); updateFormUI()">
+                <option value="" disabled selected>-- 請選擇類別 --</option>
                 <option value="OT">⚡ OT (加班)</option>
                 <option value="Comp">📉 補鐘</option>
                 <option value="PH">🏖️ 補假 (PH)</option>
@@ -146,7 +150,7 @@
             </select>
         </div>
 
-        <div id="formOT" class="form-group">
+        <div id="formOT" class="form-group" style="display:none;">
             <label>加班時數</label>
             <select id="hoursOT" onchange="tap()"></select>
         </div>
@@ -159,12 +163,13 @@
         <div id="formPH" class="form-group" style="display:none;">
             <label>來源假期 (公眾假期)</label>
             <select id="sourcePH" onchange="tap(); checkPHValidity()"></select>
-            <div id="phWarning" style="color:red; font-size:0.8rem; margin-top:5px; display:none;"></div>
+            <div id="phWarning" style="color:red; font-size:0.8rem; margin-top:5px; display:none; font-weight:bold;"></div>
         </div>
 
         <div id="formAL" class="form-group" style="display:none;">
             <div style="background:#e3f2fd; padding:15px; border-radius:10px; color:#0d47a1; text-align:center;">
-                確認記錄年假？將扣除 1 日額度。
+                <p style="margin:5px 0; font-weight:bold;">確認記錄年假？</p>
+                <p style="margin:0; font-size:0.9rem;">(將扣除 1 日)</p>
             </div>
         </div>
 
@@ -173,7 +178,7 @@
             <input type="text" id="remarks" placeholder="如有: 可選擇填寫">
         </div>
 
-        <button onclick="tap(); saveRecord()" class="btn-primary">確認記錄</button>
+        <button id="saveBtn" onclick="tap(); saveRecord()" class="btn-primary">確認記錄</button>
     </div>
 
     <div id="disclaimerModal" class="modal">
@@ -191,12 +196,26 @@
     <div id="settingsModal" class="modal">
         <div class="modal-content">
             <h3 style="color:#333">⚙️ 設定</h3>
-            <p>每年年假 (AL) 額度：</p>
-            <select id="alQuotaSelect" onchange="tap()" style="margin-bottom: 20px;">
-                <option value="12">12 日</option>
-                <option value="14">14 日</option>
-                <option value="17">17 日</option>
-            </select>
+            
+            <div style="text-align:left; margin-bottom:15px;">
+                <label>1. 每年年假 (AL) 額度</label>
+                <select id="alQuotaSelect" onchange="tap()">
+                    <option value="12">12 日</option>
+                    <option value="14">14 日</option>
+                    <option value="17">17 日</option>
+                </select>
+            </div>
+
+            <div style="text-align:left; margin-bottom:15px;">
+                <label>2. 上年剩餘年假 (Carry Forward)</label>
+                <select id="alCarrySelect" onchange="tap()">
+                    <option value="0">0 日</option>
+                    <option value="1">1 日</option>
+                    <option value="2">2 日</option>
+                    <option value="3">3 日</option>
+                </select>
+            </div>
+
             <button class="btn-primary" onclick="tap(); saveSettings()">儲存設定</button>
             <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
                 <button onclick="tap(); resetAll()" style="background:white; color:red; border:1px solid red; padding:10px; width:100%; border-radius:8px;">⚠️ 重置所有資料</button>
@@ -206,9 +225,7 @@
     </div>
 
 <script>
-    // --- 0. 音效與震動 ---
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    
     function tap() {
         if (navigator.vibrate) navigator.vibrate(15);
         if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -225,30 +242,29 @@
         oscillator.stop(audioCtx.currentTime + 0.05);
     }
 
-    // --- 1. 資料庫配置 ---
     const DB_KEY = 'ot_system_data_v2';
-    const SETTINGS_KEY = 'ot_system_settings_v2';
+    const SETTINGS_KEY = 'ot_system_settings_v3'; 
     
-    const holidays2026 = {
-        '1/1': '元旦', '2/17': '年初一', '2/18': '年初二', '2/19': '年初三',
-        '4/3': '耶穌受難', '4/4': '受難翌日', '4/6': '清明翌日', '4/7': '復活翌日',
-        '5/1': '勞動節', '5/25': '佛誕翌日', '6/19': '端午節', '7/1': '回歸',
-        '9/26': '中秋翌日', '10/1': '國慶', '10/19': '重陽', '12/25': '聖誕', '12/26': '聖誕翌日'
-    };
+    // --- 假期數據庫 (2025-2027) ---
+    const holidayData = {
+        '2025-10-01': '國慶', '2025-10-07': '中秋翌日', '2025-10-29': '重陽', '2025-12-25': '聖誕', '2025-12-26': '聖誕翌日',
 
-    const holidayDates = {
-        '元旦': '2026-01-01', '年初一': '2026-02-17', '年初二': '2026-02-18', '年初三': '2026-02-19',
-        '耶穌受難': '2026-04-03', '受難翌日': '2026-04-04', '清明翌日': '2026-04-06', '復活翌日': '2026-04-07',
-        '勞動節': '2026-05-01', '佛誕翌日': '2026-05-25', '端午節': '2026-06-19', '回歸': '2026-07-01',
-        '中秋翌日': '2026-09-26', '國慶': '2026-10-01', '重陽': '2026-10-19', '聖誕': '2026-12-25', '聖誕翌日': '2026-12-26'
+        '2026-01-01': '元旦', '2026-02-17': '年初一', '2026-02-18': '年初二', '2026-02-19': '年初三',
+        '2026-04-03': '耶穌受難', '2026-04-04': '受難翌日', '2026-04-06': '清明翌日', '2026-04-07': '復活翌日',
+        '2026-05-01': '勞動節', '2026-05-25': '佛誕翌日', '2026-06-19': '端午節', '2026-07-01': '回歸',
+        '2026-09-26': '中秋翌日', '2026-10-01': '國慶', '2026-10-19': '重陽', '2026-12-25': '聖誕', '2026-12-26': '聖誕翌日',
+
+        '2027-01-01': '元旦', '2027-02-06': '年初一', '2027-02-08': '年初三', '2027-02-09': '年初四',
+        '2027-03-26': '耶穌受難', '2027-03-27': '受難翌日', '2027-03-29': '復活翌日', '2027-04-05': '清明節',
+        '2027-05-01': '勞動節', '2027-05-14': '佛誕', '2027-06-09': '端午節', '2027-07-01': '回歸',
+        '2027-09-16': '中秋翌日', '2027-10-01': '國慶', '2027-10-08': '重陽', '2027-12-25': '聖誕', '2027-12-27': '聖誕後周一'
     };
 
     let currentDate = new Date(2026, 1, 1);
     let selectedDateStr = '';
     let appData = [];
-    let userSettings = { alQuota: 14 };
+    let userSettings = { alQuota: 14, alCarry: 0 }; 
 
-    // --- 2. 初始化 ---
     window.onload = function() {
         document.getElementById('disclaimerModal').classList.add('show');
         loadData();
@@ -269,20 +285,23 @@
         if (savedData) appData = JSON.parse(savedData);
         const savedSettings = localStorage.getItem(SETTINGS_KEY);
         if (savedSettings) userSettings = JSON.parse(savedSettings);
+        
+        if (userSettings.alCarry === undefined) userSettings.alCarry = 0;
+
         calculateBalance();
         renderRecords();
     }
 
     function initTimeOptions() {
         const otSelect = document.getElementById('hoursOT');
-        otSelect.innerHTML = '';
+        otSelect.innerHTML = '<option value="" disabled selected>-- 請選擇時數 --</option>';
         for (let i = 0.5; i <= 8.0; i += 0.5) otSelect.innerHTML += `<option value="${i}">${i} 小時</option>`;
+        
         const compSelect = document.getElementById('hoursComp');
-        compSelect.innerHTML = '';
+        compSelect.innerHTML = '<option value="" disabled selected>-- 請選擇時數 --</option>';
         for (let i = 0.5; i <= 5.0; i += 0.5) compSelect.innerHTML += `<option value="${i}">${i} 小時</option>`;
     }
 
-    // --- 3. 介面邏輯 ---
     function renderCalendar() {
         const year = currentDate.getFullYear();
         const month = currentDate.getMonth();
@@ -299,8 +318,7 @@
 
         for (let day = 1; day <= lastDay.getDate(); day++) {
             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-            const shortKey = `${month + 1}/${day}`;
-            const holidayName = holidays2026[shortKey] || '';
+            const holidayName = holidayData[dateStr] || '';
             const isSunday = new Date(year, month, day).getDay() === 0;
             const isSelected = dateStr === selectedDateStr;
             const hasRecord = appData.some(r => r.date === dateStr);
@@ -325,16 +343,13 @@
     function selectDate(dateStr) {
         selectedDateStr = dateStr;
         renderCalendar();
+        resetForm();
         const inputSec = document.getElementById('inputSection');
         inputSec.classList.add('active');
         
         let label = dateStr;
-        const d = new Date(dateStr);
-        const shortKey = `${d.getMonth()+1}/${d.getDate()}`;
-        if (holidays2026[shortKey]) label += ` (${holidays2026[shortKey]})`;
-        
+        if (holidayData[dateStr]) label += ` (${holidayData[dateStr]})`;
         document.getElementById('selectedDateLabel').innerText = label;
-        updateFormUI(); 
     }
 
     function closeInput() {
@@ -345,25 +360,44 @@
 
     function updateFormUI() {
         const type = document.getElementById('typeSelect').value;
+        if (!type) {
+            ['formOT', 'formComp', 'formPH', 'formAL'].forEach(id => document.getElementById(id).style.display = 'none');
+            return;
+        }
+
         document.getElementById('formOT').style.display = type === 'OT' ? 'block' : 'none';
         document.getElementById('formComp').style.display = type === 'Comp' ? 'block' : 'none';
         document.getElementById('formPH').style.display = type === 'PH' ? 'block' : 'none';
         document.getElementById('formAL').style.display = type === 'AL' ? 'block' : 'none';
 
         if (type === 'PH') updatePHOptions();
+        
+        document.getElementById('saveBtn').disabled = false;
+        document.getElementById('phWarning').style.display = 'none';
     }
 
+    // --- 修改：PH 下拉選單邏輯 (不能當天或早於假期) ---
     function updatePHOptions() {
         const phSelect = document.getElementById('sourcePH');
-        phSelect.innerHTML = ''; 
+        phSelect.innerHTML = '<option value="" disabled selected>-- 請選擇來源 --</option>';
 
         const usedHolidays = new Set(appData.filter(r => r.type === 'PH').map(r => r.sourcePH));
         const selectedDate = new Date(selectedDateStr);
 
-        for (const [name, dateStr] of Object.entries(holidayDates)) {
+        const sortedHolidays = Object.entries(holidayData).sort((a, b) => new Date(b[0]) - new Date(a[0]));
+
+        for (const [dateStr, name] of sortedHolidays) {
             const hDate = new Date(dateStr);
-            const isUsed = usedHolidays.has(name);
-            const isFuture = hDate > selectedDate; // 檢查假期是否遲過所選日期
+            
+            const diffTime = selectedDate - hDate;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays < -30 || diffDays > 90) continue; 
+
+            const isUsed = usedHolidays.has(`${name} (${dateStr})`);
+            
+            // 關鍵檢查：如果假期日期 >= 選擇日期 (即係選擇日期係早過或者等於假期)
+            const isTooEarly = hDate >= selectedDate; 
 
             let labelText = `${name} (${dateStr})`;
             let disabledAttr = '';
@@ -373,31 +407,31 @@
                 labelText = `${name} (已安排)`;
                 disabledAttr = 'disabled';
                 style = 'color:#aaa';
-            } else if (isFuture) {
-                labelText = `${name} (必須於補假後才可選取)`;
-                disabledAttr = 'disabled'; // 禁止選擇未發生的假期
+            } else if (isTooEarly) {
+                labelText = `${name} (補假日子不能早於公眾假期)`;
+                disabledAttr = 'disabled';
                 style = 'color:#ddd';
             }
             
-            phSelect.innerHTML += `<option value="${name}" ${disabledAttr} style="${style}">${labelText}</option>`;
+            phSelect.innerHTML += `<option value="${name} (${dateStr})" ${disabledAttr} style="${style}" data-date="${dateStr}">${labelText}</option>`;
         }
-        checkPHValidity();
     }
 
     function checkPHValidity() {
-        if (!selectedDateStr) return;
-        const holidayName = document.getElementById('sourcePH').value;
+        const select = document.getElementById('sourcePH');
+        if (!selectedDateStr || !select.value) return;
+
+        const holidayDateStr = select.options[select.selectedIndex].getAttribute('data-date');
+        const hDate = new Date(holidayDateStr);
+        const aDate = new Date(selectedDateStr);
+        const saveBtn = document.getElementById('saveBtn');
         const warning = document.getElementById('phWarning');
         
-        if (!holidayName) { warning.style.display = 'none'; return; }
-
-        const hDate = new Date(holidayDates[holidayName]);
-        const aDate = new Date(selectedDateStr);
-        
-        // 額外檢查：如果用戶用某種方法選了未來日期
-        if (aDate < hDate) {
+        // 嚴格檢查：必須 aDate > hDate (不能相等，不能小於)
+        if (aDate <= hDate) {
             warning.style.display = 'block';
-            warning.innerText = `❌ 錯誤：補假日子不能早於該公眾假期！`;
+            warning.innerText = `❌ 錯誤：補假日子必須在公眾假期之後！`;
+            saveBtn.disabled = true; 
             return;
         }
 
@@ -405,30 +439,57 @@
 
         if (diffDays > 60) {
             warning.style.display = 'block';
-            warning.innerText = `⚠️ 提示：與假期相差 ${diffDays} 日，已超過 60 日限期！`;
+            warning.innerText = `⚠️ 嚴重：已過期 ${diffDays} 日 (限期60日)！無法申請。`;
+            saveBtn.disabled = true; 
         } else {
             warning.style.display = 'none';
+            saveBtn.disabled = false; 
         }
     }
 
-    // --- 4. 儲存與邏輯 ---
+    function resetForm() {
+        document.getElementById('typeSelect').value = ""; 
+        document.getElementById('remarks').value = '';     
+        document.getElementById('hoursOT').value = "";    
+        document.getElementById('hoursComp').value = "";
+        document.getElementById('sourcePH').value = "";
+        document.getElementById('saveBtn').disabled = false; 
+        document.getElementById('phWarning').style.display = 'none';
+        updateFormUI(); 
+    }
+
     function saveRecord() {
         if (!selectedDateStr) return;
         const type = document.getElementById('typeSelect').value;
+        if (!type) { alert("⚠️ 請選擇類別！"); return; }
+
         let hours = 0, days = 0, sourcePH = '', remarks = document.getElementById('remarks').value;
 
-        if (type === 'OT') hours = parseFloat(document.getElementById('hoursOT').value);
-        else if (type === 'Comp') hours = -parseFloat(document.getElementById('hoursComp').value);
+        if (type === 'OT') {
+            const val = document.getElementById('hoursOT').value;
+            if (!val) { alert("⚠️ 請選擇 OT 時數！"); return; }
+            hours = parseFloat(val);
+        }
+        else if (type === 'Comp') {
+            const val = document.getElementById('hoursComp').value;
+            if (!val) { alert("⚠️ 請選擇補鐘時數！"); return; }
+            hours = -parseFloat(val);
+        }
         else if (type === 'PH') {
             sourcePH = document.getElementById('sourcePH').value;
-            if (!sourcePH) { alert("無效的假期選擇 (已用盡或未發生)"); return; }
+            if (!sourcePH) { alert("⚠️ 請選擇公眾假期來源！"); return; }
             
-            // 安全檢查：防止早於假期
-            const hDate = new Date(holidayDates[sourcePH]);
+            const select = document.getElementById('sourcePH');
+            const holidayDateStr = select.options[select.selectedIndex].getAttribute('data-date');
+            const hDate = new Date(holidayDateStr);
             const aDate = new Date(selectedDateStr);
-            if (aDate < hDate) {
-                alert("❌ 錯誤：補假日子不能早於該公眾假期！");
-                return;
+            const diffDays = Math.ceil(Math.abs(aDate - hDate) / (1000 * 60 * 60 * 24));
+
+            if (aDate <= hDate) {
+                alert("❌ 錯誤：補假日子必須在公眾假期之後！"); return;
+            }
+            if (diffDays > 60) {
+                alert("❌ 錯誤：補假已過期 (超過60日)，系統拒絕存檔。"); return;
             }
 
             days = -1;
@@ -437,6 +498,27 @@
         else if (type === 'AL') {
             days = -1;
             remarks = `[年假] ` + remarks;
+            
+            // 年假預支檢查
+            let currentUsed = appData.filter(r => r.type === 'AL').length;
+            let totalQuota = userSettings.alQuota + userSettings.alCarry;
+            let balance = totalQuota - currentUsed;
+            
+            // 1. 硬性上限檢查 (不能預支超過3日)
+            // balance 0 -> 可以用 (變成 -1)
+            // balance -1 -> 可以用 (變成 -2)
+            // balance -2 -> 可以用 (變成 -3)
+            // balance -3 -> 唔可以用 (會變成 -4)
+            if (balance <= -3) {
+                alert("❌ 錯誤：已達到預支上限 (3日)！無法再申請年假。");
+                return;
+            }
+
+            // 2. 彈窗確認 (如果餘額是 0 或負數，即係要預支)
+            if (balance <= 0) {
+                const confirmAdvance = confirm(`⚠️ 注意：\n你現有的年假額度已用盡。\n\n確認要「預支」下年度年假嗎？\n(目前預支第 ${Math.abs(balance) + 1} / 3 日)`);
+                if (!confirmAdvance) return; // 按取消就停止
+            }
         }
 
         appData.unshift({
@@ -450,6 +532,7 @@
         });
 
         localStorage.setItem(DB_KEY, JSON.stringify(appData));
+        resetForm();
         closeInput();
         loadData();
     }
@@ -483,39 +566,33 @@
         }
 
         document.getElementById('balancePH').innerHTML = `${17 - phUsed} <small>/ 17</small>`;
-        document.getElementById('balanceAL').innerHTML = `${userSettings.alQuota - alUsed} <small>/ ${userSettings.alQuota}</small>`;
+        
+        // 年假顯示邏輯
+        let totalAL = userSettings.alQuota + userSettings.alCarry;
+        let balanceAL = totalAL - alUsed;
+        
+        let alText = balanceAL;
+        let alClass = 'stat-value';
+        
+        if (balanceAL < 0) {
+            alText = `預支 ${Math.abs(balanceAL)}`;
+            alClass = 'stat-value text-red';
+        } else {
+            alClass = 'stat-value text-blue';
+        }
+        
+        document.getElementById('balanceAL').innerHTML = `<span class="${alClass}">${alText}</span> <small>/ ${totalAL}</small>`;
     }
 
-    function renderRecords() {
-        const list = document.getElementById('recordList');
-        list.innerHTML = '';
-        const sorted = [...appData].sort((a,b) => new Date(b.date) - new Date(a.date));
-
-        sorted.forEach(r => {
-            let val = (r.type === 'OT' || r.type === 'Comp') ? `${r.hours} hrs` : '1 日';
-            let color = r.hours > 0 ? 'green' : (r.hours < 0 ? 'orange' : '#333');
-            if (r.type === 'PH') color = '#d63384';
-            if (r.type === 'AL') color = 'blue';
-
-            list.innerHTML += `
-                <div class="record-item">
-                    <div class="record-info">
-                        <strong>${r.date}</strong> <span style="color:${color};font-weight:bold;margin-left:5px;">${r.type}</span> <span style="font-size:0.8rem;color:#888;">${val}</span><br>
-                        <span style="color:#666; font-size:0.85rem;">${r.remarks || ''}</span>
-                    </div>
-                    <button class="record-delete" onclick="tap(); deleteRecord(${r.id})">×</button>
-                </div>
-            `;
-        });
-    }
-
-    // --- 5. 設定 ---
     function openSettings() {
         document.getElementById('settingsModal').classList.add('show');
         document.getElementById('alQuotaSelect').value = userSettings.alQuota;
+        document.getElementById('alCarrySelect').value = userSettings.alCarry;
     }
     function saveSettings() {
         userSettings.alQuota = parseInt(document.getElementById('alQuotaSelect').value);
+        userSettings.alCarry = parseInt(document.getElementById('alCarrySelect').value);
+        
         localStorage.setItem(SETTINGS_KEY, JSON.stringify(userSettings));
         document.getElementById('settingsModal').classList.remove('show');
         loadData();
