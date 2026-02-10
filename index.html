@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>OT/假期 記錄系統 (V14)</title>
+    <title>OT/假期 記錄系統 (V17)</title>
     
     <link rel="apple-touch-icon" href="icon.png"> 
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -31,31 +31,36 @@
         
         button:active, .calendar-day:active, select:active { transform: scale(0.98); }
 
-        /* 儀表板 - 修復換行問題 */
+        /* 儀表板 */
         .dashboard { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 15px; }
-        .stat-card { background: var(--card-bg); padding: 10px 4px; border-radius: 12px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); overflow: hidden; }
+        .stat-card { background: var(--card-bg); padding: 12px 4px; border-radius: 12px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
         
-        /* 強制單行顯示 */
         .stat-value { 
-            font-size: 1.1rem; /* 稍微調小以適應窄屏 */
+            font-size: 1.1rem; 
             font-weight: 800; 
             display: block; 
-            margin-bottom: 2px;
-            white-space: nowrap; /* 核心修復：不准換行 */
+            white-space: nowrap; 
             overflow: hidden;
             text-overflow: ellipsis; 
+            line-height: 1.2;
         }
-        .stat-label { font-size: 0.7rem; color: #666; font-weight: 500; white-space: nowrap; }
+        
+        .stat-sub { font-size: 0.75rem; font-weight: normal; display: block; margin-top: 2px; }
+        .stat-label { font-size: 0.7rem; color: #666; font-weight: 500; margin-top: 4px; }
         
         .text-green { color: var(--success-color); }
         .text-red { color: var(--danger-color); }
         .text-blue { color: var(--primary-color); }
+        .text-purple { color: #6f42c1; } 
 
         /* 月曆結構 */
         .calendar-container { background: var(--card-bg); padding: 15px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 20px; min-height: 300px; }
         .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .calendar-header h3 { margin: 0; font-size: 1.2rem; }
-        .cal-btn { background: #eee; border: none; border-radius: 8px; padding: 5px 15px; font-weight: bold; font-size: 1.2rem; }
+        
+        /* 月曆按鈕樣式 */
+        .cal-btn { background: #eee; border: none; border-radius: 8px; padding: 5px 15px; font-weight: bold; font-size: 1.2rem; transition: opacity 0.3s; }
+        .cal-btn:disabled { opacity: 0.3; cursor: not-allowed; } /* 鎖定時變淡 */
         
         .week-header { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; text-align: center; margin-bottom: 5px; }
         .calendar-day-name { font-weight: bold; font-size: 0.8rem; color: #888; }
@@ -81,16 +86,9 @@
         .record-item { padding: 15px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; background: #fff; margin-bottom: 8px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
         .record-info { font-size: 0.95rem; line-height: 1.4; }
         
-        /* 刪除按鈕樣式 */
         .record-actions button { 
-            background: #fff0f0; 
-            border: 1px solid #ffcccc; 
-            padding: 8px 12px; 
-            font-size: 0.9rem; 
-            cursor: pointer; 
-            border-radius: 8px; 
-            color: var(--danger-color);
-            font-weight: bold;
+            background: #fff0f0; border: 1px solid #ffcccc; padding: 8px 12px; font-size: 0.9rem; 
+            cursor: pointer; border-radius: 8px; color: var(--danger-color); font-weight: bold;
         }
         .record-actions button:active { background: var(--danger-color); color: white; }
 
@@ -142,8 +140,8 @@
 
     <div class="calendar-container">
         <div class="calendar-header">
-            <button class="cal-btn" onclick="tap(); changeMonth(-1)">&lt;</button>
-            <h3 id="currentMonthLabel">2026年 2月</h3>
+            <button id="prevMonthBtn" class="cal-btn" onclick="tap(); changeMonth(-1)">&lt;</button>
+            <h3 id="currentMonthLabel">--</h3>
             <button class="cal-btn" onclick="tap(); changeMonth(1)">&gt;</button>
         </div>
         <div class="week-header">
@@ -277,15 +275,18 @@
     const DB_KEY = 'ot_system_data_v2';
     const SETTINGS_KEY = 'ot_system_settings_v3'; 
     
-    // --- 假期數據庫 (2025-2027) ---
+    // --- 假期數據庫 (2025年僅保留重要日子給跨年邏輯用, 月曆導航會鎖死) ---
     const holidayData = {
+        // 2025 (只供邏輯運算用，月曆已鎖死無法翻閱)
         '2025-10-01': '國慶', '2025-10-07': '中秋翌日', '2025-10-29': '重陽', '2025-12-25': '聖誕', '2025-12-26': '聖誕翌日',
 
+        // 2026
         '2026-01-01': '元旦', '2026-02-17': '年初一', '2026-02-18': '年初二', '2026-02-19': '年初三',
         '2026-04-03': '耶穌受難', '2026-04-04': '受難翌日', '2026-04-06': '清明翌日', '2026-04-07': '復活翌日',
         '2026-05-01': '勞動節', '2026-05-25': '佛誕翌日', '2026-06-19': '端午節', '2026-07-01': '回歸',
         '2026-09-26': '中秋翌日', '2026-10-01': '國慶', '2026-10-19': '重陽', '2026-12-25': '聖誕', '2026-12-26': '聖誕翌日',
 
+        // 2027 (預測/政府公佈)
         '2027-01-01': '元旦', '2027-02-06': '年初一', '2027-02-08': '年初三', '2027-02-09': '年初四',
         '2027-03-26': '耶穌受難', '2027-03-27': '受難翌日', '2027-03-29': '復活翌日', '2027-04-05': '清明節',
         '2027-05-01': '勞動節', '2027-05-14': '佛誕', '2027-06-09': '端午節', '2027-07-01': '回歸',
@@ -297,13 +298,11 @@
     let appData = [];
     let userSettings = { alQuota: 14, alCarry: 0 };
 
-    // --- 初始化 ---
     window.addEventListener('load', function() {
         document.getElementById('disclaimerModal').classList.add('show');
         initTimeOptions(); 
         loadData();        
         renderCalendar();  
-        
         document.body.addEventListener('touchstart', function() {
             if (audioCtx.state === 'suspended') audioCtx.resume();
         }, {once:true});
@@ -339,6 +338,14 @@
         const month = currentDate.getMonth();
         document.getElementById('currentMonthLabel').innerText = `${year}年 ${month + 1}月`;
         
+        // 核心邏輯：鎖定 2026年 1月 之前
+        const prevBtn = document.getElementById('prevMonthBtn');
+        if (year === 2026 && month === 0) { // 2026 Jan (Month is 0-indexed)
+            prevBtn.disabled = true;
+        } else {
+            prevBtn.disabled = false;
+        }
+
         const firstDay = new Date(year, month, 1);
         const lastDay = new Date(year, month + 1, 0);
         const startDayIndex = firstDay.getDay();
@@ -368,20 +375,21 @@
     }
 
     function changeMonth(delta) {
+        // 防止通過代碼跳轉到 2026年 1月 之前
+        if (delta === -1 && currentDate.getFullYear() === 2026 && currentDate.getMonth() === 0) return;
+
         currentDate.setMonth(currentDate.getMonth() + delta);
         renderCalendar();
+        calculateBalance();
     }
 
-    // --- 核心互動：選擇日期 (新增) ---
     function selectDate(dateStr) {
         selectedDateStr = dateStr;
-        renderCalendar(); // Highlight
-        resetForm(); // 重置
+        renderCalendar(); 
+        resetForm(); 
 
-        // 顯示 Popup
         document.getElementById('inputSection').classList.add('active');
         
-        // 設定標題
         let label = dateStr;
         if (holidayData[dateStr]) label += ` (${holidayData[dateStr]})`;
         document.getElementById('selectedDateLabel').innerText = label;
@@ -395,7 +403,6 @@
 
     function updateFormUI() {
         const type = document.getElementById('typeSelect').value;
-        
         ['formOT', 'formComp', 'formPH', 'formAL'].forEach(id => document.getElementById(id).classList.add('hidden'));
 
         if (!type) return;
@@ -405,9 +412,7 @@
         if (type === 'PH') document.getElementById('formPH').classList.remove('hidden');
         if (type === 'AL') document.getElementById('formAL').classList.remove('hidden');
 
-        if (type === 'PH') {
-            updatePHOptions(selectedDateStr);
-        }
+        if (type === 'PH') updatePHOptions(selectedDateStr);
         
         document.getElementById('saveBtn').disabled = false;
         document.getElementById('phWarning').style.display = 'none';
@@ -417,7 +422,6 @@
         const phSelect = document.getElementById('sourcePH');
         phSelect.innerHTML = '<option value="" disabled selected>-- 請選擇來源 --</option>';
 
-        // 檢查已用過的
         const usedHolidays = new Set(appData.filter(r => r.type === 'PH').map(r => r.sourcePH));
         const refDate = new Date(referenceDateStr);
 
@@ -493,7 +497,6 @@
 
     function saveRecord() {
         if (!selectedDateStr) { alert("請選擇日期"); return; }
-        
         const type = document.getElementById('typeSelect').value;
         if (!type) { alert("⚠️ 請選擇類別！"); return; }
 
@@ -566,11 +569,29 @@
     }
 
     function calculateBalance() {
-        let balOT = 0, phUsed = 0, alUsed = 0;
+        let balOT = 0, phUsedThisYear = 0, phCarryUsed = 0, alUsed = 0;
+        const viewYear = currentDate.getFullYear();
+
         appData.forEach(r => {
             if (r.type === 'OT' || r.type === 'Comp') balOT += r.hours;
-            if (r.type === 'PH') phUsed += 1;
             if (r.type === 'AL') alUsed += 1;
+            
+            if (r.type === 'PH') {
+                const recordYear = new Date(r.date).getFullYear();
+                if (recordYear === viewYear) {
+                    const match = r.sourcePH.match(/\d{4}/);
+                    if (match) {
+                        const sourceYear = parseInt(match[0]);
+                        if (sourceYear < viewYear) {
+                            phCarryUsed += 1; 
+                        } else {
+                            phUsedThisYear += 1; 
+                        }
+                    } else {
+                        phUsedThisYear += 1; 
+                    }
+                }
+            }
         });
 
         const elOT = document.getElementById('balanceOT');
@@ -585,22 +606,22 @@
             elOT.className = 'stat-value';
         }
 
-        document.getElementById('balancePH').innerHTML = `${17 - phUsed} <small>/ 17</small>`;
+        const elPH = document.getElementById('balancePH');
+        let phHtml = `${17 - phUsedThisYear} <small>/ 17</small>`; 
+        if (phCarryUsed > 0) {
+            phHtml += `<span class="stat-sub text-purple">(+${phCarryUsed} 補上年)</span>`;
+        }
+        elPH.innerHTML = phHtml;
         
         let totalAL = userSettings.alQuota + userSettings.alCarry;
         let balanceAL = totalAL - alUsed;
-        
         let alText = balanceAL;
-        let alClass = 'stat-value';
-        
+        let colorClass = 'text-blue';
         if (balanceAL < 0) {
             alText = `預支 ${Math.abs(balanceAL)}`;
-            alClass = 'stat-value text-red';
-        } else {
-            alClass = 'stat-value text-blue';
+            colorClass = 'text-red';
         }
-        
-        document.getElementById('balanceAL').innerHTML = `<span class="${alClass}">${alText}</span> <small>/ ${totalAL}</small>`;
+        document.getElementById('balanceAL').innerHTML = `<span class="${colorClass}">${alText}</span> <small>/ ${totalAL}</small>`;
     }
 
     function renderRecords() {
@@ -617,15 +638,23 @@
         sorted.forEach(r => {
             let val = (r.type === 'OT' || r.type === 'Comp') ? `${Math.abs(r.hours)} hrs` : '1 日';
             let color = r.hours > 0 ? 'green' : (r.hours < 0 ? 'orange' : '#333');
-            if (r.type === 'PH') color = '#d63384';
-            if (r.type === 'AL') color = 'blue';
-
             let displayRemark = r.remarks ? r.remarks.replace(/^\[.*?\]\s*/, '') : '';
+            
+            let extraLabel = "";
+            if (r.type === 'PH') {
+                color = '#d63384';
+                const viewYear = new Date(r.date).getFullYear();
+                const match = r.sourcePH.match(/\d{4}/);
+                if (match && parseInt(match[0]) < viewYear) {
+                    extraLabel = ` <span style="font-size:0.7rem; color:#6f42c1; background:#f3e5f5; padding:1px 4px; border-radius:4px;">跨年</span>`;
+                }
+            }
+            if (r.type === 'AL') color = 'blue';
 
             list.innerHTML += `
                 <div class="record-item">
                     <div class="record-info">
-                        <strong>${r.date}</strong> <span style="color:${color};font-weight:bold;margin-left:5px;">${r.type}</span> <span style="font-size:0.8rem;color:#888;">${val}</span><br>
+                        <strong>${r.date}</strong> <span style="color:${color};font-weight:bold;margin-left:5px;">${r.type}</span>${extraLabel} <span style="font-size:0.8rem;color:#888;">${val}</span><br>
                         <span style="color:#666; font-size:0.85rem;">${displayRemark}</span>
                     </div>
                     <div class="record-actions">
@@ -644,7 +673,6 @@
     function saveSettings() {
         userSettings.alQuota = parseInt(document.getElementById('alQuotaSelect').value);
         userSettings.alCarry = parseInt(document.getElementById('alCarrySelect').value);
-        
         localStorage.setItem(SETTINGS_KEY, JSON.stringify(userSettings));
         document.getElementById('settingsModal').classList.remove('show');
         loadData();
