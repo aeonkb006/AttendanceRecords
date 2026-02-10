@@ -370,11 +370,11 @@
             let style = '';
 
             if (isUsed) {
-                labelText = `${name} (已放)`;
+                labelText = `${name} (已安排)`;
                 disabledAttr = 'disabled';
                 style = 'color:#aaa';
             } else if (isFuture) {
-                labelText = `${name} (未發生)`;
+                labelText = `${name} (必須於補假後才可選取)`;
                 disabledAttr = 'disabled'; // 禁止選擇未發生的假期
                 style = 'color:#ddd';
             }
