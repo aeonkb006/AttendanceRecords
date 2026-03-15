@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>OT/假期 記錄系統 (V17)</title>
+    <title>OT/假期 記錄系統 (v17.1)</title>
     
     <link rel="apple-touch-icon" href="icon.png"> 
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -54,13 +54,13 @@
         .text-purple { color: #6f42c1; } 
 
         /* 月曆結構 */
-        .calendar-container { background: var(--card-bg); padding: 15px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 20px; min-height: 300px; }
+        .calendar-container { background: var(--card-bg); padding: 15px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 20px; min-height: 300px; position: relative; }
         .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .calendar-header h3 { margin: 0; font-size: 1.2rem; }
         
         /* 月曆按鈕樣式 */
         .cal-btn { background: #eee; border: none; border-radius: 8px; padding: 5px 15px; font-weight: bold; font-size: 1.2rem; transition: opacity 0.3s; }
-        .cal-btn:disabled { opacity: 0.3; cursor: not-allowed; } /* 鎖定時變淡 */
+        .cal-btn:disabled { opacity: 0.3; cursor: not-allowed; } 
         
         .week-header { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; text-align: center; margin-bottom: 5px; }
         .calendar-day-name { font-weight: bold; font-size: 0.8rem; color: #888; }
@@ -154,6 +154,7 @@
             <div class="calendar-day-name">六</div>
         </div>
         <div id="calendarDays" class="calendar-grid"></div>
+        <div style="position: absolute; bottom: 8px; right: 15px; font-size: 0.65rem; color: #ccc; font-weight: bold; pointer-events: none;">v17.1</div>
     </div>
 
     <div style="padding: 0 10px; display:flex; justify-content:space-between; align-items:center;">
@@ -275,25 +276,24 @@
     const DB_KEY = 'ot_system_data_v2';
     const SETTINGS_KEY = 'ot_system_settings_v3'; 
     
-    // --- 假期數據庫 (2025年僅保留重要日子給跨年邏輯用, 月曆導航會鎖死) ---
+    // --- 假期數據庫 ---
     const holidayData = {
-        // 2025 (只供邏輯運算用，月曆已鎖死無法翻閱)
         '2025-10-01': '國慶', '2025-10-07': '中秋翌日', '2025-10-29': '重陽', '2025-12-25': '聖誕', '2025-12-26': '聖誕翌日',
 
-        // 2026
         '2026-01-01': '元旦', '2026-02-17': '年初一', '2026-02-18': '年初二', '2026-02-19': '年初三',
         '2026-04-03': '耶穌受難', '2026-04-04': '受難翌日', '2026-04-06': '清明翌日', '2026-04-07': '復活翌日',
         '2026-05-01': '勞動節', '2026-05-25': '佛誕翌日', '2026-06-19': '端午節', '2026-07-01': '回歸',
         '2026-09-26': '中秋翌日', '2026-10-01': '國慶', '2026-10-19': '重陽', '2026-12-25': '聖誕', '2026-12-26': '聖誕翌日',
 
-        // 2027 (預測/政府公佈)
         '2027-01-01': '元旦', '2027-02-06': '年初一', '2027-02-08': '年初三', '2027-02-09': '年初四',
         '2027-03-26': '耶穌受難', '2027-03-27': '受難翌日', '2027-03-29': '復活翌日', '2027-04-05': '清明節',
         '2027-05-01': '勞動節', '2027-05-14': '佛誕', '2027-06-09': '端午節', '2027-07-01': '回歸',
         '2027-09-16': '中秋翌日', '2027-10-01': '國慶', '2027-10-08': '重陽', '2027-12-25': '聖誕', '2027-12-27': '聖誕後周一'
     };
 
-    let currentDate = new Date(2026, 1, 1);
+    // V17.1：自動追蹤今個月 (無需鎖死在 2026 年)
+    let currentDate = new Date(); 
+    
     let selectedDateStr = '';
     let appData = [];
     let userSettings = { alQuota: 14, alCarry: 0 };
@@ -338,9 +338,8 @@
         const month = currentDate.getMonth();
         document.getElementById('currentMonthLabel').innerText = `${year}年 ${month + 1}月`;
         
-        // 核心邏輯：鎖定 2026年 1月 之前
         const prevBtn = document.getElementById('prevMonthBtn');
-        if (year === 2026 && month === 0) { // 2026 Jan (Month is 0-indexed)
+        if (year === 2026 && month === 0) { 
             prevBtn.disabled = true;
         } else {
             prevBtn.disabled = false;
@@ -360,7 +359,24 @@
             const holidayName = holidayData[dateStr] || '';
             const isSunday = new Date(year, month, day).getDay() === 0;
             const isSelected = dateStr === selectedDateStr;
-            const hasRecord = appData.some(r => r.date === dateStr);
+            
+            // V17.1：動態彩色圓點邏輯
+            const dayRecords = appData.filter(r => r.date === dateStr);
+            let dotsHtml = '';
+            if (dayRecords.length > 0) {
+                // 搵出當日有咩獨特嘅記錄類別
+                const types = [...new Set(dayRecords.map(r => r.type))];
+                // 設定顏色：OT=綠, Comp=橙, PH=粉紅, AL=藍
+                const colors = { 'OT': '#28a745', 'Comp': '#fd7e14', 'PH': '#d63384', 'AL': '#007bff' };
+                
+                dotsHtml = '<div style="display:flex; gap:3px; position:absolute; bottom:4px; left:50%; transform:translateX(-50%);">';
+                types.forEach(type => {
+                    // 如果被選中，全部點點變白色以保持對比度；否則顯示各自顏色
+                    const dotColor = isSelected ? 'white' : (colors[type] || '#333');
+                    dotsHtml += `<div style="width:5px; height:5px; border-radius:50%; background-color:${dotColor};"></div>`;
+                });
+                dotsHtml += '</div>';
+            }
 
             let classes = `calendar-day ${isSunday ? 'sunday' : ''} ${holidayName ? 'holiday' : ''} ${isSelected ? 'selected' : ''}`;
 
@@ -368,14 +384,13 @@
                 <div class="${classes}" onclick="tap(); selectDate('${dateStr}')">
                     <span>${day}</span>
                     ${holidayName ? `<span class="holiday-name">${holidayName}</span>` : ''}
-                    ${hasRecord ? '<div class="dot"></div>' : ''}
+                    ${dotsHtml}
                 </div>
             `;
         }
     }
 
     function changeMonth(delta) {
-        // 防止通過代碼跳轉到 2026年 1月 之前
         if (delta === -1 && currentDate.getFullYear() === 2026 && currentDate.getMonth() === 0) return;
 
         currentDate.setMonth(currentDate.getMonth() + delta);
