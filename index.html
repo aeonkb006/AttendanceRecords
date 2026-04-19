@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>OT/假期 記錄系統 (v17.1)</title>
+    <title>OT/假期 記錄系統 (V17.3)</title>
     
     <link rel="apple-touch-icon" href="icon.png"> 
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -58,7 +58,6 @@
         .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .calendar-header h3 { margin: 0; font-size: 1.2rem; }
         
-        /* 月曆按鈕樣式 */
         .cal-btn { background: #eee; border: none; border-radius: 8px; padding: 5px 15px; font-weight: bold; font-size: 1.2rem; transition: opacity 0.3s; }
         .cal-btn:disabled { opacity: 0.3; cursor: not-allowed; } 
         
@@ -78,16 +77,19 @@
         
         .holiday-name { font-size: 0.6rem; line-height: 1.1; margin-top: 2px; color: #d63384; transform: scale(0.9); font-weight: normal; }
         .calendar-day.selected .holiday-name { color: rgba(255,255,255,0.9); }
-        .dot { width: 5px; height: 5px; background-color: var(--primary-color); border-radius: 50%; position: absolute; bottom: 4px; }
-        .calendar-day.selected .dot { background-color: white; }
+
+        /* 篩選按鈕列 */
+        .filter-container { padding: 0 10px; margin-top: 8px; margin-bottom: 5px; display: flex; gap: 5px; }
+        .filter-btn { flex: 1; padding: 6px 0; border: 1px solid #ddd; background: white; border-radius: 8px; font-size: 0.8rem; font-weight: bold; color: #666; cursor: pointer; text-align: center; transition: all 0.2s; }
+        .filter-btn.active { background: var(--primary-color); color: white; border-color: var(--primary-color); box-shadow: 0 2px 5px rgba(0,123,255,0.3); }
 
         /* 列表區 */
-        .record-list { background: var(--card-bg); border-radius: 15px; margin-top: 10px; overflow: hidden; padding: 10px; }
-        .record-item { padding: 15px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; background: #fff; margin-bottom: 8px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
+        .record-list { background: var(--card-bg); border-radius: 15px; overflow: hidden; padding: 10px; }
+        .record-item { padding: 12px 15px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; background: #fff; margin-bottom: 8px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
         .record-info { font-size: 0.95rem; line-height: 1.4; }
         
         .record-actions button { 
-            background: #fff0f0; border: 1px solid #ffcccc; padding: 8px 12px; font-size: 0.9rem; 
+            background: #fff0f0; border: 1px solid #ffcccc; padding: 6px 10px; font-size: 0.85rem; 
             cursor: pointer; border-radius: 8px; color: var(--danger-color); font-weight: bold;
         }
         .record-actions button:active { background: var(--danger-color); color: white; }
@@ -114,7 +116,8 @@
         .modal.show { display: flex; animation: fadeIn 0.2s; }
         .modal-content { background: white; padding: 25px; border-radius: 15px; width: 85%; max-width: 350px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
         
-        .settings-btn { position: fixed; top: 10px; right: 10px; width: 40px; height: 40px; border-radius: 50%; background: white; color: #333; font-size: 20px; display: flex; justify-content: center; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); z-index: 100; cursor: pointer; border: 1px solid #eee; }
+        /* V17.3 改動：設定按鈕移到左上角 (left: 6px) */
+        .settings-btn { position: fixed; top: 6px; left: 6px; width: 32px; height: 32px; border-radius: 50%; background: white; color: #333; font-size: 16px; display: flex; justify-content: center; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); z-index: 100; cursor: pointer; border: 1px solid #eee; }
 
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     </style>
@@ -154,12 +157,21 @@
             <div class="calendar-day-name">六</div>
         </div>
         <div id="calendarDays" class="calendar-grid"></div>
-        <div style="position: absolute; bottom: 8px; right: 15px; font-size: 0.65rem; color: #ccc; font-weight: bold; pointer-events: none;">v17.1</div>
+        <div style="position: absolute; bottom: 8px; right: 15px; font-size: 0.65rem; color: #ccc; font-weight: bold; pointer-events: none;">v17.3</div>
     </div>
 
-    <div style="padding: 0 10px; display:flex; justify-content:space-between; align-items:center;">
+    <div style="padding: 0 10px;">
         <h4 style="margin: 0; color: #666;">最近記錄</h4>
     </div>
+    
+    <div class="filter-container">
+        <button id="flt-ALL" class="filter-btn active" onclick="tap(); setFilter('ALL')">ALL</button>
+        <button id="flt-OT" class="filter-btn" onclick="tap(); setFilter('OT')">OT</button>
+        <button id="flt-Comp" class="filter-btn" onclick="tap(); setFilter('Comp')">Comp</button>
+        <button id="flt-PH" class="filter-btn" onclick="tap(); setFilter('PH')">PH</button>
+        <button id="flt-AL" class="filter-btn" onclick="tap(); setFilter('AL')">AL</button>
+    </div>
+
     <div class="record-list" id="recordList"></div>
 
     <div id="inputSection" class="input-section">
@@ -279,24 +291,21 @@
     // --- 假期數據庫 ---
     const holidayData = {
         '2025-10-01': '國慶', '2025-10-07': '中秋翌日', '2025-10-29': '重陽', '2025-12-25': '聖誕', '2025-12-26': '聖誕翌日',
-
         '2026-01-01': '元旦', '2026-02-17': '年初一', '2026-02-18': '年初二', '2026-02-19': '年初三',
         '2026-04-03': '耶穌受難', '2026-04-04': '受難翌日', '2026-04-06': '清明翌日', '2026-04-07': '復活翌日',
         '2026-05-01': '勞動節', '2026-05-25': '佛誕翌日', '2026-06-19': '端午節', '2026-07-01': '回歸',
         '2026-09-26': '中秋翌日', '2026-10-01': '國慶', '2026-10-19': '重陽', '2026-12-25': '聖誕', '2026-12-26': '聖誕翌日',
-
         '2027-01-01': '元旦', '2027-02-06': '年初一', '2027-02-08': '年初三', '2027-02-09': '年初四',
         '2027-03-26': '耶穌受難', '2027-03-27': '受難翌日', '2027-03-29': '復活翌日', '2027-04-05': '清明節',
         '2027-05-01': '勞動節', '2027-05-14': '佛誕', '2027-06-09': '端午節', '2027-07-01': '回歸',
         '2027-09-16': '中秋翌日', '2027-10-01': '國慶', '2027-10-08': '重陽', '2027-12-25': '聖誕', '2027-12-27': '聖誕後周一'
     };
 
-    // V17.1：自動追蹤今個月 (無需鎖死在 2026 年)
     let currentDate = new Date(); 
-    
     let selectedDateStr = '';
     let appData = [];
     let userSettings = { alQuota: 14, alCarry: 0 };
+    let currentFilter = 'ALL'; 
 
     window.addEventListener('load', function() {
         document.getElementById('disclaimerModal').classList.add('show');
@@ -360,20 +369,16 @@
             const isSunday = new Date(year, month, day).getDay() === 0;
             const isSelected = dateStr === selectedDateStr;
             
-            // V17.1：動態彩色圓點邏輯
             const dayRecords = appData.filter(r => r.date === dateStr);
             let dotsHtml = '';
             if (dayRecords.length > 0) {
-                // 搵出當日有咩獨特嘅記錄類別
                 const types = [...new Set(dayRecords.map(r => r.type))];
-                // 設定顏色：OT=綠, Comp=橙, PH=粉紅, AL=藍
                 const colors = { 'OT': '#28a745', 'Comp': '#fd7e14', 'PH': '#d63384', 'AL': '#007bff' };
                 
-                dotsHtml = '<div style="display:flex; gap:3px; position:absolute; bottom:4px; left:50%; transform:translateX(-50%);">';
+                dotsHtml = '<div style="display:flex; gap:2px; position:absolute; bottom:2px; left:50%; transform:translateX(-50%) scale(0.85); font-size:0.6rem; font-weight:800;">';
                 types.forEach(type => {
-                    // 如果被選中，全部點點變白色以保持對比度；否則顯示各自顏色
-                    const dotColor = isSelected ? 'white' : (colors[type] || '#333');
-                    dotsHtml += `<div style="width:5px; height:5px; border-radius:50%; background-color:${dotColor};"></div>`;
+                    const textColor = isSelected ? 'white' : (colors[type] || '#333');
+                    dotsHtml += `<span style="color:${textColor};">${type}</span>`;
                 });
                 dotsHtml += '</div>';
             }
@@ -392,7 +397,6 @@
 
     function changeMonth(delta) {
         if (delta === -1 && currentDate.getFullYear() === 2026 && currentDate.getMonth() === 0) return;
-
         currentDate.setMonth(currentDate.getMonth() + delta);
         renderCalendar();
         calculateBalance();
@@ -639,16 +643,29 @@
         document.getElementById('balanceAL').innerHTML = `<span class="${colorClass}">${alText}</span> <small>/ ${totalAL}</small>`;
     }
 
+    function setFilter(type) {
+        currentFilter = type;
+        
+        ['ALL', 'OT', 'Comp', 'PH', 'AL'].forEach(t => {
+            document.getElementById('flt-' + t).classList.remove('active');
+        });
+        document.getElementById('flt-' + type).classList.add('active');
+        
+        renderRecords();
+    }
+
     function renderRecords() {
         const list = document.getElementById('recordList');
         list.innerHTML = '';
         
-        if (appData.length === 0) {
+        const filteredData = currentFilter === 'ALL' ? appData : appData.filter(r => r.type === currentFilter);
+        
+        if (filteredData.length === 0) {
             list.innerHTML = '<div style="text-align:center; padding:20px; color:#999;">暫無記錄</div>';
             return;
         }
 
-        const sorted = [...appData].sort((a,b) => new Date(b.date) - new Date(a.date));
+        const sorted = [...filteredData].sort((a,b) => new Date(b.date) - new Date(a.date));
 
         sorted.forEach(r => {
             let val = (r.type === 'OT' || r.type === 'Comp') ? `${Math.abs(r.hours)} hrs` : '1 日';
@@ -666,14 +683,15 @@
             }
             if (r.type === 'AL') color = 'blue';
 
+            // V17.3 按鈕文字改為 "Delete"
             list.innerHTML += `
                 <div class="record-item">
                     <div class="record-info">
-                        <strong>${r.date}</strong> <span style="color:${color};font-weight:bold;margin-left:5px;">${r.type}</span>${extraLabel} <span style="font-size:0.8rem;color:#888;">${val}</span><br>
-                        <span style="color:#666; font-size:0.85rem;">${displayRemark}</span>
+                        <strong>${r.date}</strong> <span style="color:${color};font-weight:bold;margin-left:5px;">${r.type}</span>${extraLabel} <span style="font-size:0.7rem;color:#888;margin-left:4px;">${val}</span><br>
+                        <span style="color:#888; font-size:0.65rem;">${displayRemark}</span>
                     </div>
                     <div class="record-actions">
-                        <button onclick="tap(); deleteRecord(${r.id})">🗑️ 刪除</button>
+                        <button onclick="tap(); deleteRecord(${r.id})">Delete</button>
                     </div>
                 </div>
             `;
