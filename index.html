@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>OT/假期 記錄系統 (V17.3)</title>
+    <title>OT/假期 記錄系統 (V17.4)</title>
     
     <link rel="apple-touch-icon" href="icon.png"> 
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -116,7 +116,6 @@
         .modal.show { display: flex; animation: fadeIn 0.2s; }
         .modal-content { background: white; padding: 25px; border-radius: 15px; width: 85%; max-width: 350px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
         
-        /* V17.3 改動：設定按鈕移到左上角 (left: 6px) */
         .settings-btn { position: fixed; top: 6px; left: 6px; width: 32px; height: 32px; border-radius: 50%; background: white; color: #333; font-size: 16px; display: flex; justify-content: center; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); z-index: 100; cursor: pointer; border: 1px solid #eee; }
 
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -131,7 +130,8 @@
             <span class="stat-value" id="balanceAL">--</span>
             <span class="stat-label">年假 (日)</span>
         </div>
-        <div class="stat-card">
+        <!-- V17.4：補假卡片加入隱藏 onclick 事件 -->
+        <div class="stat-card" onclick="tap(); openPHStatsModal()">
             <span class="stat-value" id="balancePH">--</span>
             <span class="stat-label">補假 (日)</span>
         </div>
@@ -141,6 +141,7 @@
         </div>
     </div>
 
+    <!-- 月曆 -->
     <div class="calendar-container">
         <div class="calendar-header">
             <button id="prevMonthBtn" class="cal-btn" onclick="tap(); changeMonth(-1)">&lt;</button>
@@ -157,9 +158,11 @@
             <div class="calendar-day-name">六</div>
         </div>
         <div id="calendarDays" class="calendar-grid"></div>
-        <div style="position: absolute; bottom: 8px; right: 15px; font-size: 0.65rem; color: #ccc; font-weight: bold; pointer-events: none;">v17.3</div>
+        <!-- V17.4 版本標示 -->
+        <div style="position: absolute; bottom: 8px; right: 15px; font-size: 0.65rem; color: #ccc; font-weight: bold; pointer-events: none;">v17.4</div>
     </div>
 
+    <!-- 最近記錄列表 & 篩選按鈕 -->
     <div style="padding: 0 10px;">
         <h4 style="margin: 0; color: #666;">最近記錄</h4>
     </div>
@@ -174,6 +177,7 @@
 
     <div class="record-list" id="recordList"></div>
 
+    <!-- 輸入區 (Popup) -->
     <div id="inputSection" class="input-section">
         <button class="btn-close" onclick="tap(); closeInput()">×</button>
         
@@ -227,6 +231,7 @@
         <button id="saveBtn" onclick="tap(); saveRecord()" class="btn-primary">確認記錄</button>
     </div>
 
+    <!-- 彈窗 - 免責聲明 -->
     <div id="disclaimerModal" class="modal">
         <div class="modal-content">
             <h3>⚠️ 免責聲明</h3>
@@ -239,6 +244,7 @@
         </div>
     </div>
 
+    <!-- 彈窗 - 設定 -->
     <div id="settingsModal" class="modal">
         <div class="modal-content">
             <h3 style="color:#333">⚙️ 設定</h3>
@@ -267,6 +273,17 @@
         </div>
     </div>
 
+    <!-- 彈窗 - 補假統計 (V17.4 新增) -->
+    <div id="phStatsModal" class="modal">
+        <div class="modal-content" style="max-height: 80vh; display: flex; flex-direction: column;">
+            <h3 style="color:#333; margin-bottom: 10px;">📊 補假統計 (<span id="phStatsYear"></span>)</h3>
+            <div id="phStatsList" style="overflow-y: auto; text-align: left; font-size: 0.9rem; margin-bottom: 15px; flex-grow: 1;">
+                <!-- 統計資料會透過 JS 生成 -->
+            </div>
+            <button class="btn-primary" onclick="tap(); closePHStatsModal()" style="margin-top: 0;">關閉</button>
+        </div>
+    </div>
+
 <script>
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     function tap() {
@@ -288,7 +305,6 @@
     const DB_KEY = 'ot_system_data_v2';
     const SETTINGS_KEY = 'ot_system_settings_v3'; 
     
-    // --- 假期數據庫 ---
     const holidayData = {
         '2025-10-01': '國慶', '2025-10-07': '中秋翌日', '2025-10-29': '重陽', '2025-12-25': '聖誕', '2025-12-26': '聖誕翌日',
         '2026-01-01': '元旦', '2026-02-17': '年初一', '2026-02-18': '年初二', '2026-02-19': '年初三',
@@ -683,7 +699,6 @@
             }
             if (r.type === 'AL') color = 'blue';
 
-            // V17.3 按鈕文字改為 "Delete"
             list.innerHTML += `
                 <div class="record-item">
                     <div class="record-info">
@@ -696,6 +711,59 @@
                 </div>
             `;
         });
+    }
+
+    // --- V17.4 新增：打開補假統計視窗 ---
+    function openPHStatsModal() {
+        const viewYear = currentDate.getFullYear();
+        document.getElementById('phStatsYear').innerText = viewYear;
+        
+        // 搵出系統內所有已經用咗嘅 PH 記錄
+        const usedHolidays = new Set(appData.filter(r => r.type === 'PH').map(r => r.sourcePH));
+        
+        let usedHtml = '<div style="color:var(--success-color); font-weight:bold; margin-top:10px;">✅ 已安排 (Arranged)</div><ul style="padding-left:20px; margin-top:5px; color:#555;">';
+        let unusedHtml = '<div style="color:var(--danger-color); font-weight:bold; margin-top:15px;">❌ 未安排 (Not Arranged)</div><ul style="padding-left:20px; margin-top:5px; color:#555;">';
+        
+        let usedCount = 0;
+        let unusedCount = 0;
+
+        // 淨係統計「當前月曆顯示緊嗰一年」嘅公眾假期
+        const sortedHolidays = Object.entries(holidayData)
+            .filter(([dateStr]) => dateStr.startsWith(viewYear.toString()))
+            .sort((a, b) => new Date(a[0]) - new Date(b[0]));
+
+        sortedHolidays.forEach(([dateStr, name]) => {
+            const labelText = `${name} (${dateStr})`;
+            let isUsed = false;
+            
+            // 檢查呢個假期有冇被用過
+            usedHolidays.forEach(usedStr => {
+                if (usedStr.includes(dateStr)) {
+                    isUsed = true;
+                }
+            });
+
+            if (isUsed) {
+                usedHtml += `<li><del>${labelText}</del></li>`;
+                usedCount++;
+            } else {
+                unusedHtml += `<li>${labelText}</li>`;
+                unusedCount++;
+            }
+        });
+
+        if (usedCount === 0) usedHtml += '<li style="color:#aaa; list-style:none; margin-left:-20px;">- 無 -</li>';
+        if (unusedCount === 0) unusedHtml += '<li style="color:#aaa; list-style:none; margin-left:-20px;">- 無 -</li>';
+
+        usedHtml += '</ul>';
+        unusedHtml += '</ul>';
+
+        document.getElementById('phStatsList').innerHTML = usedHtml + unusedHtml;
+        document.getElementById('phStatsModal').classList.add('show');
+    }
+
+    function closePHStatsModal() {
+        document.getElementById('phStatsModal').classList.remove('show');
     }
 
     function openSettings() {
